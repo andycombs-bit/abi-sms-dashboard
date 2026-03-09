@@ -21,3 +21,9 @@ export interface Draft {
   createdAt: string;
   status: 'pending' | 'approved' | 'dismissed';
 }
+
+export interface SentDraft {
+  draft: Draft;
+  approvedAt: string;
+  finalText: string;
+}

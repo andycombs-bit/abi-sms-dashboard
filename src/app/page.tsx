@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Draft } from '@/lib/types';
-import { fetchDrafts, approveDraft, dismissDraft } from '@/services/api';
+import { Draft, SentDraft } from '@/lib/types';
+import { fetchDrafts, approveDraft, dismissDraft, submitForReview } from '@/services/api';
 import ConversationList from '@/components/ConversationList';
 import ThreadView from '@/components/ThreadView';
+import SentQueue from '@/components/SentQueue';
 
 const POLL_INTERVAL = 10_000;
 
@@ -12,6 +13,7 @@ export default function Home() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sentDrafts, setSentDrafts] = useState<SentDraft[]>([]);
   const prevDraftIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -23,7 +25,6 @@ export default function Home() {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      // Check for new drafts and play sound
       const newIds = new Set(sorted.map((d) => d.id));
       if (prevDraftIdsRef.current.size > 0) {
         const hasNew = sorted.some(
@@ -50,7 +51,11 @@ export default function Home() {
   }, [loadDrafts]);
 
   // Auto-select first draft if none selected or selected was removed
+  // (but not if viewing a sent draft)
   useEffect(() => {
+    const viewingSent = sentDrafts.some((s) => s.draft.id === selectedId);
+    if (viewingSent) return;
+
     if (drafts.length > 0) {
       if (!selectedId || !drafts.find((d) => d.id === selectedId)) {
         setSelectedId(drafts[0].id);
@@ -58,11 +63,21 @@ export default function Home() {
     } else {
       setSelectedId(null);
     }
-  }, [drafts, selectedId]);
+  }, [drafts, selectedId, sentDrafts]);
 
   const handleApprove = async (draftId: string, finalText: string) => {
+    const draft = drafts.find((d) => d.id === draftId);
     try {
       await approveDraft(draftId, finalText);
+      if (draft) {
+        setSentDrafts((prev) => [
+          { draft: { ...draft }, approvedAt: new Date().toISOString(), finalText },
+          ...prev,
+        ]);
+      }
+      // Move to next pending draft
+      const nextDraft = drafts.find((d) => d.id !== draftId);
+      setSelectedId(nextDraft?.id || null);
       await loadDrafts();
     } catch (err) {
       console.error('Failed to approve:', err);
@@ -78,13 +93,47 @@ export default function Home() {
     }
   };
 
-  const selectedDraft = drafts.find((d) => d.id === selectedId) || null;
+  const handleFlagForReview = async (draftId: string, reviewerNotes: string) => {
+    const draft = drafts.find((d) => d.id === draftId);
+    if (!draft) throw new Error('Draft not found');
+
+    const inboundMessage =
+      draft.messages.filter((m) => m.sender === 'customer').pop()?.text || '';
+
+    await submitForReview({
+      customerName: draft.customerName,
+      customerPhone: draft.customerPhone,
+      inboundMessage,
+      draftResponse: draft.draftResponse,
+      internalNotes: {
+        reasoning: draft.internalNotes.reasoning,
+        actionItems: draft.internalNotes.actionItems,
+        confidenceScore: draft.confidenceScore,
+      },
+      reviewerNotes,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  // Determine what to show in the center panel
+  const selectedPendingDraft = drafts.find((d) => d.id === selectedId) || null;
+  const selectedSentEntry = sentDrafts.find((s) => s.draft.id === selectedId) || null;
+
+  let viewDraft: Draft | null = null;
+  let readOnly = false;
+
+  if (selectedSentEntry) {
+    viewDraft = { ...selectedSentEntry.draft, draftResponse: selectedSentEntry.finalText };
+    readOnly = true;
+  } else {
+    viewDraft = selectedPendingDraft;
+  }
 
   return (
     <div className="flex h-screen bg-white">
       <audio ref={audioRef} src="/notification.mp3" preload="auto" />
 
-      {/* Left sidebar */}
+      {/* Left sidebar - Pending */}
       <div className="flex w-96 flex-shrink-0 flex-col border-r border-gray-200">
         <div className="border-b border-gray-200 px-4 py-4">
           <h1 className="text-xl font-bold text-gray-900">Abi SMS Drafts</h1>
@@ -105,13 +154,15 @@ export default function Home() {
         )}
       </div>
 
-      {/* Right panel */}
+      {/* Center panel - Thread View */}
       <div className="flex flex-1 flex-col">
-        {selectedDraft ? (
+        {viewDraft ? (
           <ThreadView
-            draft={selectedDraft}
+            draft={viewDraft}
             onApprove={handleApprove}
             onDismiss={handleDismiss}
+            onFlagForReview={handleFlagForReview}
+            readOnly={readOnly}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-gray-400">
@@ -137,6 +188,15 @@ export default function Home() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Right sidebar - Sent Queue */}
+      <div className="flex w-64 flex-shrink-0 flex-col border-l border-gray-200">
+        <SentQueue
+          sentDrafts={sentDrafts}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+        />
       </div>
     </div>
   );

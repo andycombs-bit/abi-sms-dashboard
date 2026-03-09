@@ -2,6 +2,7 @@ import { Draft } from '@/lib/types';
 import { mockDrafts } from '@/lib/mockData';
 
 const WEBHOOK_URL = process.env.NEXT_PUBLIC_WEBHOOK_URL || '';
+const REVIEW_WEBHOOK_URL = process.env.NEXT_PUBLIC_REVIEW_WEBHOOK_URL || '';
 const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_DATA !== 'false';
 
 // In-memory store for mock mode so dismissals persist during session
@@ -61,4 +62,31 @@ export async function dismissDraft(draftId: string): Promise<void> {
     body: JSON.stringify({ draftId }),
   });
   if (!res.ok) throw new Error('Failed to dismiss draft');
+}
+
+export async function submitForReview(data: {
+  customerName: string;
+  customerPhone: string;
+  inboundMessage: string;
+  draftResponse: string;
+  internalNotes: {
+    reasoning: string;
+    actionItems: string[];
+    confidenceScore: number;
+  };
+  reviewerNotes: string;
+  timestamp: string;
+}): Promise<void> {
+  if (USE_MOCK) {
+    await new Promise((r) => setTimeout(r, 300));
+    console.log('Review submitted (mock):', data);
+    return;
+  }
+
+  const res = await fetch(REVIEW_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to submit review');
 }

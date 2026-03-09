@@ -1,1 +1,10 @@
 @import "tailwindcss";
+
+@keyframes approve-flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.approve-flash-overlay {
+  animation: approve-flash 300ms ease-out forwards;
+}
