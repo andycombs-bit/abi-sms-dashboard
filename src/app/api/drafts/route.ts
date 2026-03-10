@@ -7,15 +7,19 @@ const SHEET_NAME = 'SMS Drafts';
 const RANGE = `${SHEET_NAME}!A:O`;
 
 function getAuth() {
-  const clientEmail = process.env.GOOGLE_SHEETS_CLIENT_EMAIL;
-  const privateKey = process.env.GOOGLE_SHEETS_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const credentialsJson = process.env.GOOGLE_SHEETS_CREDENTIALS;
 
-  if (!clientEmail || !privateKey) {
-    throw new Error('Missing Google Sheets credentials');
+  if (!credentialsJson) {
+    throw new Error('Missing GOOGLE_SHEETS_CREDENTIALS env var');
   }
 
+  const credentials = JSON.parse(credentialsJson);
+
   return new google.auth.GoogleAuth({
-    credentials: { client_email: clientEmail, private_key: privateKey },
+    credentials: {
+      client_email: credentials.client_email,
+      private_key: credentials.private_key,
+    },
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   });
 }
