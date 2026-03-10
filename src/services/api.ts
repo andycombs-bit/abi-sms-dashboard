@@ -22,7 +22,8 @@ export async function fetchDrafts(): Promise<Draft[]> {
     return getMockStore().filter((d) => d.status === 'pending');
   }
 
-  const res = await fetch(`${WEBHOOK_URL}/sms-drafts`, { cache: 'no-store' });
+  // Read directly from Google Sheets via our API route (replaces n8n polling)
+  const res = await fetch('/api/drafts', { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch drafts');
   return res.json();
 }
