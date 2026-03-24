@@ -65,6 +65,34 @@ export async function dismissDraft(draftId: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to dismiss draft');
 }
 
+export async function dismissAllDrafts(draftIds: string[]): Promise<{ succeeded: number; failed: number }> {
+  if (USE_MOCK) {
+    await new Promise((r) => setTimeout(r, 300));
+    const store = getMockStore();
+    for (const id of draftIds) {
+      const draft = store.find((d) => d.id === id);
+      if (draft) draft.status = 'dismissed';
+    }
+    return { succeeded: draftIds.length, failed: 0 };
+  }
+
+  const results = await Promise.allSettled(
+    draftIds.map((draftId) =>
+      fetch(`${WEBHOOK_URL}/sms-dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draftId }),
+      }).then((res) => {
+        if (!res.ok) throw new Error(`Failed for ${draftId}`);
+      })
+    )
+  );
+
+  const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+  const failed = results.filter((r) => r.status === 'rejected').length;
+  return { succeeded, failed };
+}
+
 export async function submitForReview(data: {
   customerName: string;
   customerPhone: string;

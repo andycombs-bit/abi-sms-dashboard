@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Draft, SentDraft } from '@/lib/types';
-import { fetchDrafts, approveDraft, dismissDraft, submitForReview } from '@/services/api';
+import { fetchDrafts, approveDraft, dismissDraft, dismissAllDrafts, submitForReview } from '@/services/api';
 import ConversationList from '@/components/ConversationList';
 import ThreadView from '@/components/ThreadView';
 import SentQueue from '@/components/SentQueue';
@@ -14,6 +14,7 @@ export default function Home() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sentDrafts, setSentDrafts] = useState<SentDraft[]>([]);
+  const [dismissingAll, setDismissingAll] = useState(false);
   const prevDraftIdsRef = useRef<Set<string>>(new Set());
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -93,6 +94,24 @@ export default function Home() {
     }
   };
 
+  const handleDismissAll = async () => {
+    if (drafts.length === 0) return;
+    setDismissingAll(true);
+    try {
+      const ids = drafts.map((d) => d.id);
+      const { failed } = await dismissAllDrafts(ids);
+      if (failed > 0) {
+        console.error(`Failed to dismiss ${failed} of ${ids.length} drafts`);
+      }
+      setSelectedId(null);
+      await loadDrafts();
+    } catch (err) {
+      console.error('Failed to dismiss all:', err);
+    } finally {
+      setDismissingAll(false);
+    }
+  };
+
   const handleFlagForReview = async (draftId: string, reviewerNotes: string) => {
     const draft = drafts.find((d) => d.id === draftId);
     if (!draft) throw new Error('Draft not found');
@@ -136,7 +155,22 @@ export default function Home() {
       {/* Left sidebar - Pending */}
       <div className="flex w-96 flex-shrink-0 flex-col border-r border-gray-200">
         <div className="border-b border-gray-200 px-4 py-4">
-          <h1 className="text-xl font-bold text-gray-900">Abi SMS Drafts</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-xl font-bold text-gray-900">Abi SMS Drafts</h1>
+            {drafts.length > 1 && (
+              <button
+                onClick={() => {
+                  if (window.confirm(`Dismiss all ${drafts.length} pending drafts?`)) {
+                    handleDismissAll();
+                  }
+                }}
+                disabled={dismissingAll}
+                className="rounded-md px-2.5 py-1 text-xs font-medium text-red-600 ring-1 ring-red-200 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {dismissingAll ? 'Dismissing...' : 'Dismiss All'}
+              </button>
+            )}
+          </div>
           <p className="text-xs text-gray-500">
             {drafts.length} pending review{drafts.length !== 1 ? 's' : ''}
           </p>
