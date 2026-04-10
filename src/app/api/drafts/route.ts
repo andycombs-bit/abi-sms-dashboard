@@ -68,18 +68,16 @@ function rowToDraft(row: string[], headers: string[]) {
     id: r.draft_id,
     customerName: r.customer_name || 'Unknown',
     customerPhone: r.phone,
-    confidenceScore: parseFloat(r.confidence_score) * 100 || 0,
+    confidenceScore: (() => {
+      const raw = parseFloat(r.confidence_score);
+      if (isNaN(raw)) return 0;
+      return raw <= 1 ? Math.round(raw * 100) : Math.round(raw);
+    })(),
     messages: [
       {
         id: `${r.draft_id}-inbound`,
         sender: 'customer' as const,
         text: r.inbound_text,
-        timestamp: createdAt,
-      },
-      {
-        id: `${r.draft_id}-draft`,
-        sender: 'abi' as const,
-        text: r.draft_response,
         timestamp: createdAt,
       },
     ],

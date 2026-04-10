@@ -41,7 +41,7 @@ export default function ThreadView({
 }: ThreadViewProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(draft.draftResponse);
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(true);
   const [flashing, setFlashing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
@@ -53,7 +53,7 @@ export default function ThreadView({
     setPrevDraftId(draft.id);
     setIsEditing(false);
     setEditText(draft.draftResponse);
-    setNotesOpen(false);
+    setNotesOpen(true);
     setFlashing(false);
     setShowReviewModal(false);
     setReviewNotes('');
