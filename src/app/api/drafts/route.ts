@@ -118,7 +118,8 @@ export async function GET() {
       .slice(1)
       .filter((row) => {
         const statusIdx = headers.indexOf('status');
-        return statusIdx >= 0 && row[statusIdx] === 'pending';
+        const status = statusIdx >= 0 ? row[statusIdx] : '';
+        return status === 'pending' || status === 'needs_human_input';
       })
       .map((row) => rowToDraft(row, headers));
 
