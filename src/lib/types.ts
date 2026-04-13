@@ -19,7 +19,7 @@ export interface Draft {
   draftResponse: string;
   internalNotes: InternalNotes;
   createdAt: string;
-  status: 'pending' | 'approved' | 'dismissed';
+  status: 'pending' | 'needs_human_input' | 'approved' | 'dismissed';
 }
 
 export interface SentDraft {

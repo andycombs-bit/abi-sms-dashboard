@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Draft } from '@/lib/types';
 import { formatTimestamp } from '@/lib/utils';
+import { fetchThread, ThreadMessage } from '@/services/api';
 import ActionButtons from './ActionButtons';
 
 interface ThreadViewProps {
@@ -48,6 +49,10 @@ export default function ThreadView({
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  const [threadHistory, setThreadHistory] = useState<ThreadMessage[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [threadOpen, setThreadOpen] = useState(false);
+
   const [prevDraftId, setPrevDraftId] = useState(draft.id);
   if (draft.id !== prevDraftId) {
     setPrevDraftId(draft.id);
@@ -57,7 +62,18 @@ export default function ThreadView({
     setFlashing(false);
     setShowReviewModal(false);
     setReviewNotes('');
+    setThreadHistory([]);
+    setThreadOpen(false);
   }
+
+  useEffect(() => {
+    if (threadOpen && threadHistory.length === 0 && !threadLoading) {
+      setThreadLoading(true);
+      fetchThread(draft.customerPhone)
+        .then(setThreadHistory)
+        .finally(() => setThreadLoading(false));
+    }
+  }, [threadOpen, threadHistory.length, threadLoading, draft.customerPhone]);
 
   useEffect(() => {
     if (toast) {
@@ -170,6 +186,68 @@ export default function ThreadView({
         </div>
 
         <div className="mx-auto mt-6 max-w-2xl">
+          <button
+            onClick={() => setThreadOpen(!threadOpen)}
+            className="flex w-full items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition-colors hover:bg-gray-50"
+          >
+            <svg
+              className={`h-4 w-4 transition-transform ${
+                threadOpen ? 'rotate-90' : ''
+              }`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
+            </svg>
+            SMS History
+            <span className="ml-auto rounded bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600">
+              {threadLoading ? 'loading...' : threadHistory.length > 0 ? `${threadHistory.length} messages` : 'last 48h'}
+            </span>
+          </button>
+          {threadOpen && (
+            <div className="mt-2 rounded-lg bg-white p-4 shadow-sm">
+              {threadLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-blue-500" />
+                </div>
+              ) : threadHistory.length === 0 ? (
+                <p className="text-center text-sm text-gray-400 py-2">No recent conversation history</p>
+              ) : (
+                <div className="space-y-2">
+                  {threadHistory.map((msg, i) => (
+                    <div key={i} className={`flex text-sm ${msg.direction === 'incoming' ? '' : 'justify-end'}`}>
+                      <div className={`max-w-[85%] rounded-lg px-3 py-1.5 ${
+                        msg.direction === 'incoming'
+                          ? 'bg-gray-100 text-gray-800'
+                          : 'bg-blue-50 text-blue-900'
+                      }`}>
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-[10px] font-semibold uppercase ${
+                            msg.direction === 'incoming' ? 'text-gray-500' : 'text-blue-500'
+                          }`}>
+                            {msg.direction === 'incoming' ? 'Customer' : 'H2H'}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            {formatTimestamp(msg.timestamp)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-auto mt-3 max-w-2xl">
           <button
             onClick={() => setNotesOpen(!notesOpen)}
             className="flex w-full items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-left text-sm font-medium text-gray-600 shadow-sm transition-colors hover:bg-gray-50"

@@ -93,6 +93,24 @@ export async function dismissAllDrafts(draftIds: string[]): Promise<{ succeeded:
   return { succeeded, failed };
 }
 
+export interface ThreadMessage {
+  direction: 'incoming' | 'outgoing';
+  text: string;
+  timestamp: string;
+}
+
+export async function fetchThread(phone: string): Promise<ThreadMessage[]> {
+  if (USE_MOCK) {
+    return [];
+  }
+
+  const res = await fetch(`/api/thread?phone=${encodeURIComponent(phone)}`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function submitForReview(data: {
   customerName: string;
   customerPhone: string;
